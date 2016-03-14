@@ -3,10 +3,12 @@ import os
 from datetime import datetime
 import hashlib
 import logging
+
+from PIL import Image
 from blog import app, db, mail, login
 from blog.forms import LoginForm, RegisterForm, PasswordRequestForm, PasswordResetForm
 from blog.models import User, Registration, PasswordReset
-from flask import render_template, flash, redirect, url_for, request, abort
+from flask import render_template, flash, redirect, url_for, request, abort, send_file
 from flask.ext.login import login_user, login_required, logout_user
 from flask.ext.mail import Message
 from werkzeug.security import generate_password_hash, check_password_hash

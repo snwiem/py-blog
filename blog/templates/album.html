@@ -1,6 +1,11 @@
 {% extends "bootstrap/base.html" %}
 {% import "bootstrap/utils.html" as utils %}
 
+{% block styles %}
+{{super()}}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/thumbnails.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="container">
     {{ utils.flashed_messages() }}
@@ -13,7 +18,7 @@
         {% for i in images %}
         <div class="col-lg-3 col-md-4 col-xs-6 thumb">
             <a class="thumbnail" href="#">
-                <img class="img-responsive" src="/thumb{{ i }}" alt="">
+                <img class="img-responsive" src="/thumb{{ i }}" alt="{{ i }}">
             </a>
         </div>
         {% endfor %}

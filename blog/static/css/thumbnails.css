@@ -1,0 +1,21 @@
+/*
+.thumbnail{
+    width: 300px; // or you could use percentage value for responsive layout
+    height: 500px;
+    overflow: auto;
+}
+
+.thumbnail img{
+// your styles for the images
+}
+
+.image {
+    display: block;
+    text-indent: -1000px;
+    overflow: hidden;
+    background-size: cover;
+    width: 400px;
+    height: 300px;
+    float: left;
+}
+*/
