@@ -1,4 +1,6 @@
 #!env/bin/python
+import logging
+
 from flask.ext.script import Manager
 
 from blog import app, db, models
@@ -11,4 +13,5 @@ def make_shell_context():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     manager.run()
