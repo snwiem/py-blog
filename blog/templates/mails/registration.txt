@@ -1,0 +1,17 @@
+Hello,
+
+you have registered at http://py-blog.com using the email address: {{ registration.email }}
+You need to verify that this is your personal email address by clicking the link below
+
+{{ url }}
+
+If the link is not clickable, please copy and paste it into the address bar of your favourite browser.
+
+If you haven't registered at http://py-blog.com please report this to the following email address: support@py-blog.com.
+
+
+Thank you very much for your time and we hope you enjoy py-blog.com.
+
+
+Best regards
+the py-blog.com team

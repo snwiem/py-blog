@@ -13,6 +13,21 @@ class User(db.Model):
     created = db.Column(db.DateTime, name="user_created", nullable=False)
     modified = db.Column(db.DateTime, name="user_modified", nullable=False)
 
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_active(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return str(self.id)
+
     def __repr__(self):
         return "<%r %r>" % (type(self).__name__, self.email)
 

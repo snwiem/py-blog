@@ -1,11 +1,12 @@
 from datetime import datetime
 import hashlib
 
-from blog import app, db
+from blog import app, db, mail, login
 from blog.forms import LoginForm, RegisterForm, PasswordRequestForm, PasswordResetForm
 from blog.models import User, Registration, PasswordReset
 from flask import render_template, flash, redirect, url_for, request
-from flask.ext.login import login_user
+from flask.ext.login import login_user, login_required, logout_user
+from flask.ext.mail import Message
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
@@ -27,10 +28,46 @@ def create_password_token(password_request):
     return md5.hexdigest()
 
 
+def send_registration_email(registration):
+    url = "http://" + app.config["SERVER_NAME"] + url_for("register_confirm", rid=registration.id, token=registration.token)
+
+    msg = Message()
+    msg.subject = "PY-Blog Registration"
+    msg.recipients = [registration.email]
+    msg.sender = "noreply@py-blog.com"
+    msg.body = render_template("mails/registration.txt", registration=registration, url=url)
+    # msg.html = render_template("mails/registration.html", registration=registration, url=url)
+    mail.send(msg)
+
+
+def send_password_email(password):
+    url = "http://" + app.config["SERVER_NAME"] + url_for("password_request_confirm", pid=password.id, token=password.token)
+
+    msg = Message()
+    msg.subject = "PY-Blog Password Reset"
+    msg.recipients = [password.email]
+    msg.sender = "noreply@py-blog.com"
+    msg.body = render_template("mails/password.txt", password=password, url=url)
+    # msg.html = render_template("mails/password.html", password=password, url=url)
+    mail.send(msg)
+
+
+@login.user_loader
+def load_user(uid):
+    return User.query.get(int(uid))
+
+
 @app.route("/")
 @app.route("/index/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("index"))
 
 
 @app.route("/login/", methods=['GET', 'POST'])
@@ -50,7 +87,7 @@ def login():
             fresh = False
             login_user(user, remember=remember, force=force, fresh=fresh)
             flash("You have successfully logged in.")
-            return redirect(url_for("index"))
+            return redirect(request.args.get('next') or url_for('index'))
         else:
             flash("Invalid login data", "danger")
     return render_template("login.html", form=form)
@@ -78,9 +115,7 @@ def register():
                 registration.created = registration.modified
                 db.session.add(registration)
             db.session.commit()
-            # TODO: send registration email
-            url = url_for("register_confirm", rid=registration.id, token=registration.token)
-            print("URL: %s" % url)
+            send_registration_email(registration)
             flash("You have successfully registered. Please check you email inbox.", "success")
         else:
             flash("This email address is already registered.", "danger")
@@ -127,9 +162,7 @@ def password_request():
                 pw_request.created = pw_request.modified
                 db.session.add(pw_request)
             db.session.commit()
-            # TODO: send password email
-            url = url_for("password_request_confirm", pid=pw_request.id, token=pw_request.token)
-            print("URL: %s" % url)
+            send_password_email(pw_request)
         flash("You will receive a link per email to finish your password reset.", "success")
         return redirect(url_for("index"))
     return render_template("reset.html", form=form)
@@ -149,7 +182,7 @@ def password_request_confirm(pid, token):
     return render_template("reset.html", form=form, action=url_for("password_reset"))
 
 
-@app.route("/password_reset/", methods=['GET', 'POST'])
+@app.route("/password_reset/", methods=['POST'])
 def password_reset():
     form = PasswordResetForm()
     if form.validate_on_submit():
@@ -171,3 +204,9 @@ def password_reset():
         flash("Invalid link. Please try again.", "danger")
         return redirect(url_for("request"))
     return render_template("reset.html", form=form)
+
+
+@app.route("/blog")
+@login_required
+def blog():
+    return render_template("blog.html")
