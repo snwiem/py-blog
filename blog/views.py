@@ -67,7 +67,7 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/logout")
+@app.route("/logout/")
 @login_required
 def logout():
     logout_user()
@@ -158,6 +158,13 @@ def password_request():
                 pw_request.email = email
                 pw_request.retries = 1
             else:
+                # To prevent spamming we check the last modification timestamp of this password reset request.
+                # Reset requests are allowed only after a certain amount of time
+                pw_request_minage_in_seconds = app.config["PW_REQUEST_AGE_IN_SECONDS"]
+                pw_request_age_in_seconds = (datetime.utcnow() - pw_request.modified).total_seconds()
+                if pw_request_age_in_seconds < pw_request_minage_in_seconds:
+                    flash("Password resets are only allowed every %d minutes. You need to wait at least %d seconds before you can request a password reset." % ((pw_request_minage_in_seconds/60), (pw_request_minage_in_seconds-pw_request_age_in_seconds)))
+                    return render_template("reset.html", form=form)
                 pw_request.retries += 1
             pw_request.address = request.remote_addr
             pw_request.modified = datetime.utcnow()
@@ -167,6 +174,7 @@ def password_request():
                 db.session.add(pw_request)
             db.session.commit()
             send_password_email(pw_request)
+        # WARN: this message will also given for emails not being registered users.
         flash("You will receive a link per email to finish your password reset.", "success")
         return redirect(url_for("index"))
     return render_template("reset.html", form=form)
@@ -210,13 +218,14 @@ def password_reset():
     return render_template("reset.html", form=form)
 
 
-@app.route("/blog")
+@app.route("/blog/")
 @login_required
 def blog():
     return render_template("blog.html")
 
 
 @app.route("/album/<path:path>")
+@login_required
 def album(path):
     root_abs = os.path.abspath(app.config['ALBUM_ROOT'])
     album_dir = os.path.join(root_abs, path)
@@ -226,39 +235,44 @@ def album(path):
         abort(404)
     # scan directory for images
     images = [i[len(root_abs):] for ext in app.config['IMAGE_EXTS'] for i in glob.iglob(album_dir + "/*." + ext)]
-    subs = [(path+"/"+i, i) for i in next(os.walk(album_dir))[1]]
+    subs = [(path+"/"+i, i) for i in next(os.walk(album_dir))[1] if not i.startswith(".")]
     #return json.dumps(images) + json.dumps(subs)
     return render_template('album.html', images=images, subs=subs)
 
 
 @app.route('/thumb/<path:path>')
+@login_required
 def thumbnail(path):
-    thumb_root = os.path.abspath(app.config['THUMB_ROOT'])
-    thumb_file = os.path.join(thumb_root, path)
-    thumb_file = os.path.splitext(thumb_file)[0]+".png"
+    # if there is no such image, we do not need to generate a thumbnail
+    image_file = os.path.join(os.path.abspath(app.config['ALBUM_ROOT']), path)
+    if not os.path.exists(image_file):
+        abort(404)
+        return
+
+    album_dir = os.path.dirname(path)
+    album_root = os.path.abspath(app.config['ALBUM_ROOT'])
+    album_dir = os.path.join(album_root, album_dir)
+    thumb_dir = os.path.join(album_dir, ".thumbs")
+    thumb_file = os.path.splitext(os.path.join(thumb_dir, os.path.basename(path)))[0]+".png"
+
     create_thumb = False
-    if not os.path.exists(thumb_file):
+    if not os.path.exists(thumb_file) or os.path.getmtime(image_file) > os.path.getmtime(thumb_file):
         create_thumb = True
-    if os.path.exists(thumb_file):
-        image_root = os.path.abspath(app.config['ALBUM_ROOT'])
-        image_file = os.path.join(image_root, path)
-        if not os.path.exists(image_file):
-            abort(404)
-            return
-        if os.path.getmtime(image_file) > os.path.getmtime(thumb_file):
-            create_thumb = True
+
     if create_thumb:
-        thumb_dir = os.path.dirname(thumb_file)
         if not os.path.exists(thumb_dir):
             os.makedirs(thumb_dir)
-        # need to generate thumb
-        image_root = os.path.abspath(app.config['ALBUM_ROOT'])
-        image_file = os.path.join(image_root, path)
-        if not os.path.exists(image_file):
-            abort(404)
-            return
         img = Image.open(image_file)
         img.thumbnail(app.config['THUMB_DIMS'])
         logging.debug("*** saving " + thumb_file)
         img.save(thumb_file, "PNG")
     return send_file(thumb_file)
+
+@app.route('/image/<path:path>')
+@login_required
+def image(path):
+    image_file = os.path.join(os.path.abspath(app.config['ALBUM_ROOT']), path)
+    if not os.path.exists(image_file):
+        abort(404)
+        return
+    return send_file(image_file)
